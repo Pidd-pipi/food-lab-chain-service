@@ -60,7 +60,9 @@ func (m *Monitor) ProcessReading(ctx context.Context, r Reading) ([]Alert, error
 }
 
 // Recent returns the most recent n readings for a device as an independent
-// copy.
+// copy. The backing array is never shared with the stored history, so a reader
+// that holds onto the slice while ProcessReading keeps rotating the ring buffer
+// sees a frozen snapshot rather than values being shuffled underneath it.
 func (m *Monitor) Recent(ctx context.Context, deviceID string, n int) ([]Reading, error) {
 	select {
 	case <-ctx.Done():
@@ -76,7 +78,9 @@ func (m *Monitor) Recent(ctx context.Context, deviceID string, n int) ([]Reading
 	if n == 0 {
 		return []Reading{}, nil
 	}
-	return ring[len(ring)-n:], nil
+	out := make([]Reading, n)
+	copy(out, ring[len(ring)-n:])
+	return out, nil
 }
 
 func (m *Monitor) Excursions(deviceID string) int {
