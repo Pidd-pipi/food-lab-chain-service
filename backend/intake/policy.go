@@ -53,14 +53,11 @@ func EvaluateAll(items []Item, policy Policy) []error {
 }
 
 // ValidateBatch returns whether the batch is valid for submission and the
-// first blocking error, if any. The original error is preserved so callers can
-// match it with errors.Is.
+// first blocking error, if any. The original error is preserved verbatim (and
+// for item-level failures wrapped so errors.Is still matches the sentinel) so
+// callers can report the real reason a batch was rejected rather than a generic
+// "rejected" placeholder.
 func ValidateBatch(batch Batch) (ok bool, err error) {
-	defer func() {
-		if !ok && err != nil {
-			err = fmt.Errorf("batch rejected")
-		}
-	}()
 	if err := DefaultPolicy().CheckBatch(batch); err != nil {
 		return false, err
 	}

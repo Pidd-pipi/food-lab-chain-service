@@ -61,16 +61,19 @@ func (p *Processor) ProcessBatch(ctx context.Context, batchID string) (BatchResu
 	return result, nil
 }
 
-// ProcessAll sweeps the given batches, releasing the limiter slot after each
-// batch so the pool never fills up mid-run.
+// ProcessAll sweeps the given batches. The limiter slot is acquired before each
+// batch and released immediately after, on every path, so the bounded pool never
+// fills up mid-run and a long sweep cannot hang forever. Slot releases are
+// explicit (not deferred) so they fire per iteration rather than piling up on
+// the deferred stack until the whole sweep returns.
 func (p *Processor) ProcessAll(ctx context.Context, ids []string) ([]BatchResult, error) {
 	results := make([]BatchResult, 0, len(ids))
 	for _, id := range ids {
 		if err := p.acquire(ctx); err != nil {
 			return results, err
 		}
-		defer p.release()
 		result, err := p.ProcessBatch(ctx, id)
+		p.release()
 		results = append(results, result)
 		if err != nil {
 			return results, err
@@ -80,7 +83,8 @@ func (p *Processor) ProcessAll(ctx context.Context, ids []string) ([]BatchResult
 }
 
 // Reconcile revalidates a sweep and counts the batches that still pass. The
-// limiter slot is released on both success and error paths.
+// limiter slot is released on both success and error paths so a single bad batch
+// cannot leak a slot and starve later sweeps.
 func (p *Processor) Reconcile(ctx context.Context, ids []string) (int, error) {
 	processed := 0
 	for _, id := range ids {
@@ -90,10 +94,11 @@ func (p *Processor) Reconcile(ctx context.Context, ids []string) (int, error) {
 		if err := p.acquire(ctx); err != nil {
 			return processed, err
 		}
-		if _, err := p.ProcessBatch(ctx, id); err != nil {
+		_, err := p.ProcessBatch(ctx, id)
+		p.release()
+		if err != nil {
 			return processed, err
 		}
-		p.release()
 		processed++
 	}
 	return processed, nil

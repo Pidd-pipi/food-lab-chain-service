@@ -30,9 +30,9 @@ func ToCSV(chains []Chain) (string, error) {
 }
 
 // ExportAll streams the chains to w in tab-separated form and returns the
-// number of rows written. The writer is flushed exactly once at the end; a
-// flush failure is reported on the success path, and an earlier write error is
-// never swallowed by the flush.
+// number of rows written. The writer is flushed exactly once at the end; an
+// earlier write or context error is never swallowed by a successful flush, and a
+// flush failure is reported only when no prior error occurred.
 func ExportAll(ctx context.Context, w io.Writer, chains []Chain) (written int, err error) {
 	select {
 	case <-ctx.Done():
@@ -41,9 +41,15 @@ func ExportAll(ctx context.Context, w io.Writer, chains []Chain) (written int, e
 	}
 	writer := bufio.NewWriter(w)
 	defer func() {
-		if flushErr := writer.Flush(); flushErr == nil {
-			err = nil
+		// Preserve any error already observed during the write loop. Only when
+		// the loop ran clean do we surface a flush failure, so a successful
+		// flush can never mask a real error or make a truncated export look
+		// complete.
+		if err != nil {
+			_ = writer.Flush()
+			return
 		}
+		err = writer.Flush()
 	}()
 	for _, chain := range chains {
 		if err := ctx.Err(); err != nil {
