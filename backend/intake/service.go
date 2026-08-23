@@ -59,7 +59,12 @@ func (s *Service) FilterByStatus(ctx context.Context, status Status) ([]*Batch, 
 	if err != nil {
 		return nil, err
 	}
-	filtered := batches[:0]
+	// Build a fresh slice rather than filtering in place over batches[:0].
+	// repo.List returns clones, but in-place compaction would alias the
+	// returned batch pointers with the input slice and could let a caller
+	// mutating a returned batch leak changes into a batch that no longer
+	// matches the filter.
+	filtered := make([]*Batch, 0, len(batches))
 	for _, batch := range batches {
 		if batch.Status == status {
 			filtered = append(filtered, batch)

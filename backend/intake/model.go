@@ -42,13 +42,18 @@ type Summary struct {
 	Status        Status
 }
 
-// Clone returns a deep copy of the batch. Callers that keep a batch around
-// after mutating it must use Clone so the stored copy never changes shape
-// underneath concurrent readers.
+// Clone returns a deep copy of the batch, including its specimen lines.
+// Callers that keep a batch around after mutating it must use Clone so the
+// stored copy never changes shape underneath concurrent readers; mutating a
+// returned batch (or its Items) must never reach the in-memory state.
 func (b *Batch) Clone() *Batch {
 	if b == nil {
 		return nil
 	}
-	copy := *b
-	return &copy
+	dup := *b
+	if b.Items != nil {
+		dup.Items = make([]Item, len(b.Items))
+		copy(dup.Items, b.Items)
+	}
+	return &dup
 }

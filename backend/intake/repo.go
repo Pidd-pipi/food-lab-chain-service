@@ -31,10 +31,18 @@ func (r *Repo) Save(ctx context.Context, batch *Batch) error {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	clone := batch.Clone()
 	if _, ok := r.byID[batch.ID]; !ok {
-		r.ordered = append(r.ordered, batch)
+		r.ordered = append(r.ordered, clone)
+	} else {
+		for i, item := range r.ordered {
+			if item.ID == clone.ID {
+				r.ordered[i] = clone
+				break
+			}
+		}
 	}
-	r.byID[batch.ID] = batch
+	r.byID[batch.ID] = clone
 	return nil
 }
 
@@ -50,11 +58,13 @@ func (r *Repo) Get(ctx context.Context, id string) (*Batch, error) {
 	if !ok {
 		return nil, ErrBatchNotFound
 	}
-	return batch, nil
+	return batch.Clone(), nil
 }
 
 // List returns all batches in insertion order. The returned slice and each
-// batch are independent copies of the internal state.
+// batch (including its specimen lines) are independent copies of the internal
+// state, so callers may filter, reorder, or mutate them without disturbing the
+// in-memory store.
 func (r *Repo) List(ctx context.Context) ([]*Batch, error) {
 	select {
 	case <-ctx.Done():
@@ -63,7 +73,11 @@ func (r *Repo) List(ctx context.Context) ([]*Batch, error) {
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.ordered, nil
+	out := make([]*Batch, 0, len(r.ordered))
+	for _, batch := range r.ordered {
+		out = append(out, batch.Clone())
+	}
+	return out, nil
 }
 
 func (r *Repo) Update(ctx context.Context, batch *Batch, expected int) (*Batch, error) {
@@ -107,5 +121,11 @@ func (r *Repo) Delete(ctx context.Context, id string) error {
 		return ErrBatchNotFound
 	}
 	delete(r.byID, id)
+	for i, item := range r.ordered {
+		if item.ID == id {
+			r.ordered = append(r.ordered[:i], r.ordered[i+1:]...)
+			break
+		}
+	}
 	return nil
 }
