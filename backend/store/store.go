@@ -22,6 +22,8 @@ func New() *Store {
 // List returns a snapshot of every specimen. The snapshot is taken under the
 // read lock so concurrent handoffs never race with the copy.
 func (s *Store) List() []domain.Specimen {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	result := make([]domain.Specimen, 0, len(s.specimens))
 	for _, item := range s.specimens {
 		result = append(result, *item)
@@ -31,6 +33,8 @@ func (s *Store) List() []domain.Specimen {
 
 // Get returns one specimen as an independent copy.
 func (s *Store) Get(id string) (domain.Specimen, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	specimen, ok := s.specimens[id]
 	if !ok {
 		return domain.Specimen{}, domain.ErrSpecimenNotFound
@@ -40,16 +44,15 @@ func (s *Store) Get(id string) (domain.Specimen, error) {
 
 // Handoff applies the handoff transition while holding the write lock so the
 // shared specimen pointer is never mutated concurrently with readers.
-func (s *Store) Handoff(id, recipient string) error {
+func (s *Store) Handoff(id, recipient string) (domain.Specimen, error) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	specimen, ok := s.specimens[id]
-	s.mu.Unlock()
 	if !ok {
-		return domain.ErrSpecimenNotFound
+		return domain.Specimen{}, domain.ErrSpecimenNotFound
 	}
 	if err := domain.Handoff(specimen, recipient); err != nil {
-		return err
+		return domain.Specimen{}, err
 	}
-	s.specimens[id] = specimen
-	return nil
+	return *specimen, nil
 }

@@ -30,7 +30,8 @@ func handoffSpecimen(s *store.Store) http.HandlerFunc {
 			writeError(w, 400, err.Error())
 			return
 		}
-		if err = s.Handoff(specimenID(r.URL.Path), input.To); err != nil {
+		updated, err := s.Handoff(specimenID(r.URL.Path), input.To)
+		if err != nil {
 			status := 409
 			if errors.Is(err, domain.ErrSpecimenNotFound) {
 				status = 404
@@ -38,7 +39,7 @@ func handoffSpecimen(s *store.Store) http.HandlerFunc {
 			writeError(w, status, err.Error())
 			return
 		}
-		writeJSON(w, 200, map[string]string{"status": "handoff-recorded", "specimenID": specimenID(r.URL.Path), "to": input.To})
+		writeJSON(w, 200, map[string]string{"status": "handoff-recorded", "specimenID": specimenID(r.URL.Path), "to": input.To, "chainState": updated.ChainState})
 	}
 }
 func writeJSON(w http.ResponseWriter, status int, value any) {
