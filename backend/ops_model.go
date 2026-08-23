@@ -77,6 +77,7 @@ type OpsSnapshot struct {
 	GeneratedAt string
 	Records     int
 	Active      int
+	Open        int
 	ByStatus    map[OpsStatus]int
 	ByPriority  map[OpsPriority]int
 }
@@ -91,7 +92,7 @@ func (r OpsRecord) Clone() OpsRecord {
 }
 
 func (r OpsRecord) LabelValue(key string) string { return r.Labels[key] }
-func (r OpsRecord) Terminal() bool               { return r.Status == OpsStatusClosed || r.Status == OpsStatusReviewing }
+func (r OpsRecord) Terminal() bool               { return r.Status == OpsStatusClosed }
 
 func (p OpsPriority) Weight() int {
 	switch p {

@@ -101,6 +101,9 @@ func (s *OpsService) Snapshot() OpsSnapshot {
 		if i.Status == OpsStatusActive {
 			out.Active++
 		}
+		if opsInProgress(i.Status) {
+			out.Open++
+		}
 	}
 	return out
 }

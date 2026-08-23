@@ -66,9 +66,11 @@ func opsLastID(p OpsPage) string {
 }
 
 // opsInProgressStatuses returns the statuses that count as an in-progress
-// record for list and snapshot views.
+// record for list and snapshot views. Reviewing is an intermediate, non-terminal
+// state, so an order sitting in review is still in progress — it must stay
+// visible in the in-progress list and count toward the open totals.
 func opsInProgressStatuses() []OpsStatus {
-	return []OpsStatus{OpsStatusQueued, OpsStatusActive, OpsStatusPaused}
+	return []OpsStatus{OpsStatusQueued, OpsStatusActive, OpsStatusPaused, OpsStatusReviewing}
 }
 
 func opsInProgress(value OpsStatus) bool {
@@ -92,9 +94,12 @@ func opsFilterInProgress(items []OpsRecord) []OpsRecord {
 }
 
 // opsMatchInProgress matches a record against the in-progress pseudo-status.
+// When the caller asks for status=in_progress the record matches if it is in
+// any non-terminal, still-open status (queued, active, paused, reviewing);
+// otherwise it is filtered by the explicit status the caller supplied.
 func opsMatchInProgress(item OpsRecord, query OpsQuery) bool {
 	if query.Status == "in_progress" {
-		return false
+		return opsInProgress(item.Status)
 	}
 	return opsMatch(item, query)
 }

@@ -8,8 +8,8 @@ import (
 var opsTransitionTable = map[OpsStatus]map[OpsStatus]bool{
 	OpsStatusQueued:    {OpsStatusActive: true, OpsStatusReviewing: true, OpsStatusClosed: true},
 	OpsStatusActive:    {OpsStatusPaused: true, OpsStatusReviewing: true, OpsStatusClosed: true},
-	OpsStatusPaused:    {OpsStatusActive: true, OpsStatusClosed: true},
-	OpsStatusReviewing: {OpsStatusActive: true},
+	OpsStatusPaused:    {OpsStatusActive: true, OpsStatusReviewing: true, OpsStatusClosed: true},
+	OpsStatusReviewing: {OpsStatusActive: true, OpsStatusClosed: true},
 	OpsStatusClosed:    {},
 }
 
@@ -56,8 +56,8 @@ func (m *OpsStateMachine) Last() (OpsTransition, bool) {
 }
 func (m *OpsStateMachine) Reset() { m.mu.Lock(); defer m.mu.Unlock(); m.history = m.history[:0] }
 func opsStatusValid(value OpsStatus) bool {
-	return value == OpsStatusQueued || value == OpsStatusActive || value == OpsStatusPaused || value == OpsStatusClosed
+	return value == OpsStatusQueued || value == OpsStatusActive || value == OpsStatusPaused || value == OpsStatusReviewing || value == OpsStatusClosed
 }
 func opsStatusTerminal(value OpsStatus) bool {
-	return value == OpsStatusClosed || value == OpsStatusReviewing
+	return value == OpsStatusClosed
 }
