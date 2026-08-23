@@ -10,7 +10,10 @@ import (
 func Reconcile(ctx context.Context, svc *OpsService, ids []string, target OpsStatus) (int, error) {
 	done := 0
 	for _, id := range ids {
-		record, err := svc.Transition(context.Background(), id, 0, target, "reconcile")
+		if err := ctx.Err(); err != nil {
+			return done, err
+		}
+		record, err := svc.Transition(ctx, id, 0, target, "reconcile")
 		if err != nil {
 			return done, err
 		}

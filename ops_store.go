@@ -51,18 +51,21 @@ func (s *OpsStore) List(ctx context.Context) ([]OpsRecord, error) {
 func (s *OpsStore) Put(ctx context.Context, item OpsRecord) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if _, ok := s.items[item.ID]; ok {
 		return ErrOpsConflict
 	}
 	s.items[item.ID] = normalizeOpsRecord(item)
-	if err := ctx.Err(); err != nil {
-		return err
-	}
 	return nil
 }
 func (s *OpsStore) Update(ctx context.Context, item OpsRecord, expected int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	current, ok := s.items[item.ID]
 	if !ok {
 		return ErrOpsNotFound
@@ -73,21 +76,18 @@ func (s *OpsStore) Update(ctx context.Context, item OpsRecord, expected int) err
 	item.Revision = current.Revision + 1
 	item.UpdatedAt = timeNowOps()
 	s.items[item.ID] = item.Clone()
-	if err := ctx.Err(); err != nil {
-		return err
-	}
 	return nil
 }
 func (s *OpsStore) Delete(ctx context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if _, ok := s.items[id]; !ok {
 		return ErrOpsNotFound
 	}
 	delete(s.items, id)
-	if err := ctx.Err(); err != nil {
-		return err
-	}
 	return nil
 }
 func (s *OpsStore) Count() int { s.mu.RLock(); defer s.mu.RUnlock(); return len(s.items) }
