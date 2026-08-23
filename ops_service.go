@@ -46,7 +46,7 @@ func (s *OpsService) Create(ctx context.Context, record OpsRecord) (OpsRecord, e
 	record.CreatedAt = s.clock.Stamp()
 	record.UpdatedAt = record.CreatedAt
 	if err := s.store.Put(ctx, record); err != nil {
-		return OpsRecord{}, wrapOps("create", "store.put", fmt.Errorf("store.put: %v", err))
+		return OpsRecord{}, wrapOps("create", "store.put", fmt.Errorf("store.put: %w", err))
 	}
 	s.audit.Add(record.ID, "created", record.Owner)
 	return record, nil
@@ -54,7 +54,7 @@ func (s *OpsService) Create(ctx context.Context, record OpsRecord) (OpsRecord, e
 func (s *OpsService) Get(ctx context.Context, id string) (OpsRecord, error) {
 	record, err := s.store.Get(ctx, id)
 	if err != nil {
-		return OpsRecord{}, fmt.Errorf("get: %v", err)
+		return OpsRecord{}, fmt.Errorf("get: %w", err)
 	}
 	return record, nil
 }

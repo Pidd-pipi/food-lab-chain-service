@@ -29,11 +29,12 @@ func (e *OpsError) Unwrap() error { return e.Cause }
 func wrapOps(code, operation string, cause error) error {
 	return &OpsError{Code: code, Operation: operation, Cause: cause}
 }
+// opsCode classifies an error into a stable category string that the HTTP
+// layer can map to a status code. The sentinel errors are checked first so
+// that wrapping with %w (or OpsError) never breaks the chain. OpsError.Code
+// is only consulted as a last resort, because it carries the operation name
+// rather than an error category.
 func opsCode(err error) string {
-	var typed *OpsError
-	if errors.As(err, &typed) {
-		return typed.Code
-	}
 	switch {
 	case errors.Is(err, ErrOpsNotFound):
 		return "not_found"
@@ -45,9 +46,12 @@ func opsCode(err error) string {
 		return "transition"
 	case errors.Is(err, ErrOpsPolicy):
 		return "policy"
-	default:
-		return "internal"
 	}
+	var typed *OpsError
+	if errors.As(err, &typed) {
+		return typed.Code
+	}
+	return "internal"
 }
 func opsIsNotFound(err error) bool   { return errors.Is(err, ErrOpsNotFound) }
 func opsIsConflict(err error) bool   { return errors.Is(err, ErrOpsConflict) }
