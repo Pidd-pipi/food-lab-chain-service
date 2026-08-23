@@ -32,9 +32,15 @@ func NewBuilder(events []Event) *Builder {
 }
 
 func (b *Builder) Build(ctx context.Context, specimenID string) (*Chain, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	chain := &Chain{SpecimenID: specimenID}
 	step := 1
 	for _, event := range b.events {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if event.SpecimenID != specimenID {
 			continue
 		}
@@ -59,16 +65,24 @@ func (b *Builder) Build(ctx context.Context, specimenID string) (*Chain, error) 
 }
 
 // BuildAll assembles the requested chains sequentially and stops as soon as
-// the context is canceled.
+// the context is canceled. On cancellation it returns no chains rather than a
+// partial slice, so a half-built batch can never be mistaken for a finished
+// one downstream.
 func (b *Builder) BuildAll(ctx context.Context, ids []string) ([]Chain, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	chains := make([]Chain, 0, len(ids))
 	for _, id := range ids {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		chain, err := b.Build(ctx, id)
 		if err != nil {
 			if errors.Is(err, ErrChainNotFound) {
 				continue
 			}
-			return chains, err
+			return nil, err
 		}
 		chains = append(chains, *chain)
 	}

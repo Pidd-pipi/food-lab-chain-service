@@ -32,7 +32,10 @@ func ToCSV(chains []Chain) (string, error) {
 // ExportAll streams the chains to w in tab-separated form and returns the
 // number of rows written. The writer is flushed exactly once at the end; a
 // flush failure is reported on the success path, and an earlier write error is
-// never swallowed by the flush.
+// never swallowed by the flush. The context is checked between chains and
+// between rows, so a cancellation never keeps writing just to finish the
+// current chain; on cancel the buffered rows are discarded instead of flushed,
+// so the caller never receives a half export that looks complete.
 func ExportAll(ctx context.Context, w io.Writer, chains []Chain) (written int, err error) {
 	select {
 	case <-ctx.Done():
@@ -45,6 +48,9 @@ func ExportAll(ctx context.Context, w io.Writer, chains []Chain) (written int, e
 			return written, err
 		}
 		for _, node := range chain.Nodes {
+			if err := ctx.Err(); err != nil {
+				return written, err
+			}
 			if _, err := fmt.Fprintf(writer, "%s\t%d\n", node.EventID, node.Step); err != nil {
 				return written, err
 			}
